@@ -70,6 +70,13 @@
         <canvas id="poster" width="1080" height="1080" aria-label="Live poster preview"></canvas>
         <p id="export-status" class="export-status" role="status"></p>
       </div>
+      <div class="canvas-tools">
+        <label class="toggle" title="Anchor each panel's crop to the face its photo's heuristic finds">
+          <input type="checkbox" id="face-aware-toggle" checked>
+          <span>Face-aware crop</span>
+        </label>
+        <span class="drag-hint">Drag the preview to pan the selected panel</span>
+      </div>
       <div class="panel-editor" id="panel-editor"></div>
     </main>
 
@@ -98,6 +105,7 @@
       <section class="rail-block">
         <h2>Export</h2>
         <button id="export-all" class="btn btn-export" type="button">Export all 3 PNGs</button>
+        <button id="export-current" class="btn btn-export-secondary" type="button">Export current size</button>
         <p class="export-note">Writes 1080×1080, 1080×1350 and 1920×1080 PNGs from the live preview.</p>
       </section>
     </aside>

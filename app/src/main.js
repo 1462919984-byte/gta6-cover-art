@@ -1,21 +1,24 @@
-// Wires the editor together: keeps the state, re-renders the poster on every
-// change, pushes undo snapshots, and handles the caption fields, export buttons
-// and the ?shot= query used to produce screenshots.
+// Wires the editor together: owns the live state, re-renders the poster on every
+// change, records undo snapshots, and hooks up caption fields, export buttons,
+// drag-to-pan, the face-aware toggle and the ?shot= query used for screenshots.
 
 import { renderPoster } from './render.js';
 import { ensureFonts } from './lettering.js';
-import { exportAllSizes } from './export.js';
+import { exportAllSizes, exportCurrentSize } from './export.js';
 import { defaultState } from './state.js';
 import { runShot } from './shots.js';
 import {
-  buildPhotoStrip, buildChips, buildSizeSwitch, buildPanelEditor, buildPanelSwaps,
-  wirePhotoInput, wireSamples,
+  buildChips, buildPanelEditor, buildPanelSwaps, buildPhotoStrip, buildSizeSwitch,
+  wireCanvasPan, wireFaceAwareToggle, wirePhotoInput, wireSamples,
 } from './editor-ui.js';
 
 export function loadImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => { img.name = url.split('/').pop(); resolve(img); };
+    img.onload = () => {
+      img.name = url.split('/').pop();
+      resolve(img);
+    };
     img.onerror = reject;
     img.src = url;
   });
@@ -26,20 +29,27 @@ const canvas = document.getElementById('poster');
 const status = document.getElementById('export-status');
 let undoStack = [];
 let redoStack = [];
+let suppressHistory = false;
 
 function snapshot() {
   return JSON.parse(JSON.stringify({
-    layoutId: state.layoutId, gradeId: state.gradeId, sizeId: state.sizeId,
-    panels: state.panels, captions: state.captions,
+    layoutId: state.layoutId,
+    gradeId: state.gradeId,
+    sizeId: state.sizeId,
+    faceAware: state.faceAware,
+    panels: state.panels,
+    captions: state.captions,
   }));
 }
 
 function restore(s) {
-  state.layoutId = s.layoutId; state.gradeId = s.gradeId; state.sizeId = s.sizeId;
-  state.panels = s.panels; state.captions = s.captions;
+  state.layoutId = s.layoutId;
+  state.gradeId = s.gradeId;
+  state.sizeId = s.sizeId;
+  state.faceAware = s.faceAware;
+  state.panels = s.panels;
+  state.captions = s.captions;
 }
-
-let suppressHistory = false;
 
 function pushHistory() {
   if (suppressHistory) return;
@@ -55,6 +65,7 @@ function render() {
   buildSizeSwitch(state, render);
   buildPanelEditor(state, render);
   buildPanelSwaps(state, render);
+  wireFaceAwareToggle(state, render);
 }
 
 function renderLight() {
@@ -83,9 +94,15 @@ function redo() {
 
 function wireCaptionFields() {
   const map = {
-    'cap-title': 'title', 'cap-subtitle': 'subtitle', 'cap-tagline': 'tagline',
-    'cap-review': 'review', 'cap-source': 'source', 'cap-edition': 'edition',
-    'cap-seal': 'seal', 'cap-release': 'release', 'cap-billing': 'billing',
+    'cap-title': 'title',
+    'cap-subtitle': 'subtitle',
+    'cap-tagline': 'tagline',
+    'cap-review': 'review',
+    'cap-source': 'source',
+    'cap-edition': 'edition',
+    'cap-seal': 'seal',
+    'cap-release': 'release',
+    'cap-billing': 'billing',
   };
   for (const [id, key] of Object.entries(map)) {
     const el = document.getElementById(id);
@@ -98,13 +115,29 @@ function wireCaptionFields() {
 
 function bindExport() {
   document.getElementById('export-all').addEventListener('click', () => {
-    exportAllSizes(state, (msg) => { status.textContent = msg; });
+    pushHistory();
+    exportAllSizes(state, (msg) => {
+      status.textContent = msg;
+    });
   });
+  // The per-size button is the small feature hook: it exports just the current
+  // 1:1 / 4:5 / 16:9 selection instead of always writing all three.
+  const current = document.getElementById('export-current');
+  if (current) {
+    current.addEventListener('click', () => {
+      pushHistory();
+      exportCurrentSize(state, (msg) => {
+        status.textContent = msg;
+      });
+    });
+  }
 }
 
 async function boot() {
   await ensureFonts();
   wireCaptionFields();
+  wireCanvasPan(state, render);
+  wireFaceAwareToggle(state, render);
   wirePhotoInput(state, render);
   await wireSamples(state, render);
   document.getElementById('undo').addEventListener('click', undo);
@@ -112,8 +145,12 @@ async function boot() {
   document.getElementById('reset-poster').addEventListener('click', () => {
     pushHistory();
     const fresh = defaultState();
-    state.layoutId = fresh.layoutId; state.gradeId = fresh.gradeId; state.sizeId = fresh.sizeId;
-    state.captions = fresh.captions; state.panels = fresh.panels;
+    state.layoutId = fresh.layoutId;
+    state.gradeId = fresh.gradeId;
+    state.sizeId = fresh.sizeId;
+    state.faceAware = fresh.faceAware;
+    state.captions = fresh.captions;
+    state.panels = fresh.panels;
     render();
   });
   bindExport();

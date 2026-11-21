@@ -1,6 +1,10 @@
-// The editor's single source of truth: photos, panel crops, layout, grade,
-// captions and export size. Kept separate from rendering so undo/redo and the
-// live preview stay in sync without any network calls.
+// The editor's single source of truth. Photos, panel crops, layout, grade,
+// captions and export size all live here, kept apart from rendering so undo /
+// redo and the live preview can read the same object without any network calls.
+//
+// The `faceAware` flag is a global editor preference: when true, the renderer
+// re-anchors each panel's crop to the face-like region its photo's heuristic
+// finds (see crop.js), while still honouring the user's zoom and flip.
 
 import { LAYOUTS, panelRole } from './layouts.js';
 import { GRADES } from './grades.js';
@@ -23,29 +27,32 @@ const DEFAULT_CAPTIONS = {
   billing: 'A VICE VOLTAGE PICTURES PRODUCTION IN ASSOCIATION WITH NEON COAST ENTERTAINMENT',
 };
 
+// The fallback anchor: the upper third of a photo is where a face usually sits.
+// Face-aware anchoring overrides this when it finds a stronger region.
+export const FALLBACK_ANCHOR = { x: 0.5, y: 0.34 };
+
 export function blankCrop() {
-  // Face-aware default: the crop is anchored toward the upper third of the
-  // photo (where a face usually sits) rather than the exact centre.
-  return { zoom: 1.15, panX: 0.5, panY: 0.34, flip: false };
+  return { zoom: 1.15, panX: FALLBACK_ANCHOR.x, panY: FALLBACK_ANCHOR.y, flip: false };
 }
 
 export function defaultPanels() {
-  // Each layout has seven panels; the hero gets a slightly tighter close-up.
+  // Seven slots per layout; the hero gets a slightly tighter close-up.
   return Array.from({ length: 7 }, (_, i) => ({
-    photo: i,               // index into photos[]; falls back to 0 if missing
+    photo: i,
     crop: { ...blankCrop(), zoom: i === 0 ? 1.22 : 1.1 },
   }));
 }
 
 export function defaultState() {
   return {
-    photos: [],             // { id, url, name, width, height, kind: 'upload'|'sample'|'vector' }
+    photos: [], // { id, url, name, width, height, kind, image? }
     panels: defaultPanels(),
     layoutId: 'castMosaic',
     gradeId: 'sunsetGold',
     sizeId: '1080x1080',
     captions: { ...DEFAULT_CAPTIONS },
     selectedPanel: 0,
+    faceAware: true,
   };
 }
 

@@ -1,10 +1,12 @@
-// Editor UI: photo strip, layout/grade chips, size switcher, per-panel controls,
-// drag-to-swap number badges, and undo/redo. It mutates the state object and
-// asks main.js to re-render after every change.
+// Editor UI builders: the photo strip, layout/grade chips, size switcher,
+// per-panel controls, drag-to-swap badges, and the new pointer-event drag-to-pan
+// on the preview canvas. Every builder mutates the shared state and calls back
+// into main.js's render so the poster stays in sync after each change.
 
 import { LAYOUTS } from './layouts.js';
 import { GRADES } from './grades.js';
 import { SIZES, findLayout, findGrade } from './state.js';
+import { cropPanBounds, clamp01 } from './crop.js';
 import { addDemoCast, SAMPLE_NAMES } from './samples.js';
 import { loadImage } from './main.js';
 
@@ -21,19 +23,25 @@ export function buildPhotoStrip(state, render) {
       <button class="photo-remove" data-i="${i}" title="Remove">×</button>
     `;
     card.addEventListener('click', () => {
-      // Clicking a photo assigns it to the selected panel
       const panel = state.panels[state.selectedPanel];
-      if (panel) { panel.photo = i; render(); }
+      if (panel) {
+        panel.photo = i;
+        render();
+      }
     });
     strip.appendChild(card);
   });
+
   strip.querySelectorAll('.photo-remove').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const i = Number(btn.dataset.i);
       state.photos.splice(i, 1);
-      // Re-point panels so they still resolve to a valid photo
-      state.panels.forEach((p) => { if (p.photo > i) p.photo -= 1; if (p.photo >= state.photos.length) p.photo = 0; });
+      // Re-point panels so they keep resolving to a valid photo index.
+      state.panels.forEach((p) => {
+        if (p.photo > i) p.photo -= 1;
+        if (p.photo >= state.photos.length) p.photo = 0;
+      });
       render();
     });
   });
@@ -46,7 +54,10 @@ export function buildChips(state, render) {
     const chip = document.createElement('button');
     chip.className = 'chip' + (l.id === state.layoutId ? ' active' : '');
     chip.textContent = l.name;
-    chip.addEventListener('click', () => { state.layoutId = l.id; render(); });
+    chip.addEventListener('click', () => {
+      state.layoutId = l.id;
+      render();
+    });
     layoutList.appendChild(chip);
   });
 
@@ -56,7 +67,10 @@ export function buildChips(state, render) {
     const chip = document.createElement('button');
     chip.className = 'chip' + (g.id === state.gradeId ? ' active' : '');
     chip.textContent = g.name;
-    chip.addEventListener('click', () => { state.gradeId = g.id; render(); });
+    chip.addEventListener('click', () => {
+      state.gradeId = g.id;
+      render();
+    });
     gradeList.appendChild(chip);
   });
 }
@@ -69,7 +83,10 @@ export function buildSizeSwitch(state, render) {
     b.className = s.id === state.sizeId ? 'active' : '';
     b.textContent = s.label;
     b.dataset.size = s.id;
-    b.addEventListener('click', () => { state.sizeId = s.id; render(); });
+    b.addEventListener('click', () => {
+      state.sizeId = s.id;
+      render();
+    });
     sw.appendChild(b);
   });
 }
@@ -97,26 +114,35 @@ export function buildPanelEditor(state, render) {
         <button data-role="auto">Face zone</button>
       </div>
     `;
+
     ctrl.querySelector('[data-role=photo]').addEventListener('change', (e) => {
-      panel.photo = Number(e.target.value); render();
+      panel.photo = Number(e.target.value);
+      render();
     });
     ctrl.querySelector('input[type=range]').addEventListener('input', (e) => {
-      panel.crop.zoom = Number(e.target.value); render();
+      panel.crop.zoom = Number(e.target.value);
+      render();
     });
     ctrl.querySelector('[data-role=panX]').addEventListener('input', (e) => {
-      panel.crop.panX = Number(e.target.value); render();
+      panel.crop.panX = Number(e.target.value);
+      render();
     });
     ctrl.querySelector('[data-role=panY]').addEventListener('input', (e) => {
-      panel.crop.panY = Number(e.target.value); render();
+      panel.crop.panY = Number(e.target.value);
+      render();
     });
     ctrl.querySelector('[data-role=flip]').addEventListener('click', () => {
-      panel.crop.flip = !panel.crop.flip; render();
+      panel.crop.flip = !panel.crop.flip;
+      render();
     });
     ctrl.querySelector('[data-role=reset]').addEventListener('click', () => {
-      panel.crop = { zoom: 1.15, panX: 0.5, panY: 0.34, flip: false }; render();
+      panel.crop = { zoom: 1.15, panX: 0.5, panY: 0.34, flip: false };
+      render();
     });
     ctrl.querySelector('[data-role=auto]').addEventListener('click', () => {
-      panel.crop.panY = 0.34; panel.crop.zoom = 1.15; render();
+      panel.crop.panY = 0.34;
+      panel.crop.zoom = 1.15;
+      render();
     });
     wrap.appendChild(ctrl);
   });
@@ -133,9 +159,18 @@ export function buildPanelSwaps(state, render) {
     badge.className = 'badge';
     badge.draggable = true;
     badge.innerHTML = `<b>${i + 1}</b> ${i === 0 ? 'HERO' : ''}`;
-    badge.addEventListener('dragstart', () => { dragFrom = i; badge.classList.add('dragging'); });
-    badge.addEventListener('dragend', () => { dragFrom = null; badge.classList.remove('dragging'); });
-    badge.addEventListener('dragover', (e) => { e.preventDefault(); badge.classList.add('drag-over'); });
+    badge.addEventListener('dragstart', () => {
+      dragFrom = i;
+      badge.classList.add('dragging');
+    });
+    badge.addEventListener('dragend', () => {
+      dragFrom = null;
+      badge.classList.remove('dragging');
+    });
+    badge.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      badge.classList.add('drag-over');
+    });
     badge.addEventListener('dragleave', () => badge.classList.remove('drag-over'));
     badge.addEventListener('drop', (e) => {
       e.preventDefault();
@@ -151,6 +186,95 @@ export function buildPanelSwaps(state, render) {
   });
 }
 
+/**
+ * Drag-to-pan on the preview canvas. Uses pointer events plus setPointerCapture
+ * so mouse and touch behave identically, clamps the pan offset to the photo's
+ * source scroll range, updates the selected panel's crop and re-renders on move.
+ * The existing zoom slider keeps working alongside it.
+ */
+export function wireCanvasPan(state, render) {
+  const canvas = document.getElementById('poster');
+  let active = false;
+  let startX = 0;
+  let startY = 0;
+  let startPanX = 0;
+  let startPanY = 0;
+
+  const bounds = () => {
+    const panel = state.panels[state.selectedPanel];
+    const layout = findLayout(state.layoutId);
+    const size = SIZES.find((s) => s.id === state.sizeId) ?? SIZES[0];
+    const slot = layout.panels[state.selectedPanel];
+    const img = state.photos[panel.photo]?.image ?? state.photos[panel.photo] ?? null;
+    if (!img || !slot) return null;
+    const targetAspect = (slot.w * size.w) / (slot.h * size.h);
+    return cropPanBounds(img, targetAspect, panel.crop);
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const b = bounds();
+    if (!b) return;
+    // A manual drag is the user taking over the pan point, so switch the
+    // global face-aware override off (and mirror that in the checkbox) before
+    // the next move; otherwise the override would keep snapping the crop back.
+    if (state.faceAware) {
+      state.faceAware = false;
+      const toggle = document.getElementById('face-aware-toggle');
+      if (toggle) toggle.checked = false;
+    }
+    active = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    const panel = state.panels[state.selectedPanel];
+    startPanX = panel.crop.panX ?? 0.5;
+    startPanY = panel.crop.panY ?? 0.5;
+    canvas.setPointerCapture(e.pointerId);
+    canvas.classList.add('dragging');
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!active) return;
+    const b = bounds();
+    if (!b || (!b.maxX && !b.maxY)) return;
+    const panel = state.panels[state.selectedPanel];
+    // The canvas is drawn at display size smaller than its pixel size; convert
+    // screen pixels to source pixels using the element's rendered rect.
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? b.maxX / rect.width : 0;
+    const scaleY = rect.height > 0 ? b.maxY / rect.height : 0;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    // Dragging right/up moves the visible image with the pointer, which means
+    // the source window moves the opposite way.
+    panel.crop.panX = clamp01(startPanX - dx * scaleX);
+    panel.crop.panY = clamp01(startPanY - dy * scaleY);
+    render();
+  });
+
+  const end = (e) => {
+    if (!active) return;
+    active = false;
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {
+      // Pointer may already be released on some browsers.
+    }
+    canvas.classList.remove('dragging');
+  };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+}
+
+export function wireFaceAwareToggle(state, render) {
+  const toggle = document.getElementById('face-aware-toggle');
+  if (!toggle) return;
+  toggle.checked = state.faceAware;
+  toggle.addEventListener('change', () => {
+    state.faceAware = toggle.checked;
+    render();
+  });
+}
+
 export function wirePhotoInput(state, render) {
   const input = document.getElementById('photo-input');
   input.addEventListener('change', async () => {
@@ -160,7 +284,12 @@ export function wirePhotoInput(state, render) {
       const img = await loadImage(url);
       state.photos.push({
         id: `upload-${Date.now()}-${state.photos.length}`,
-        url, name: file.name, width: img.naturalWidth, height: img.naturalHeight, kind: 'upload', image: img,
+        url,
+        name: file.name,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        kind: 'upload',
+        image: img,
       });
       img.name = file.name;
     }
@@ -175,10 +304,20 @@ export async function wireSamples(state, render) {
     btn.disabled = true;
     for (const name of SAMPLE_NAMES) {
       const img = await loadImage(`samples/${name}.jpg`);
-      state.photos.push({ id: `sample-${name}`, url: `samples/${name}.jpg`, name, width: img.naturalWidth, height: img.naturalHeight, kind: 'sample', image: img });
+      state.photos.push({
+        id: `sample-${name}`,
+        url: `samples/${name}.jpg`,
+        name,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        kind: 'sample',
+        image: img,
+      });
     }
     await addDemoCast(state);
-    state.panels.forEach((panel, i) => { panel.photo = Math.min(i, state.photos.length - 1); });
+    state.panels.forEach((panel, i) => {
+      panel.photo = Math.min(i, state.photos.length - 1);
+    });
     btn.disabled = false;
     render();
   });

@@ -1,5 +1,6 @@
-// PNG export: renders the poster into an offscreen canvas for each of the
-// three required sizes, then hands the user canvas.toBlob downloads.
+// PNG export. The poster is re-rendered into an offscreen canvas for each
+// requested size, then written out with canvas.toBlob so the exported file is
+// exactly what the live preview shows.
 
 import { renderPoster } from './render.js';
 import { SIZES } from './state.js';
@@ -8,27 +9,32 @@ export function exportAllSizes(state, onProgress) {
   let done = 0;
   const total = SIZES.length;
   SIZES.forEach((size) => {
-    const canvas = document.createElement('canvas');
-    const snapshot = { ...state, sizeId: size.id };
-    renderPoster(canvas, snapshot);
-    canvas.toBlob((blob) => {
-      if (!blob) { onProgress(`Could not write ${size.w}×${size.h}`); return; }
-      downloadBlob(blob, `vice-voltage-${size.w}x${size.h}.png`);
+    renderToDownload(state, size.id, size.w, size.h, () => {
       done += 1;
       onProgress(`Saved vice-voltage-${size.w}x${size.h}.png (${done}/${total})`);
       if (done === total) onProgress(`Exported all ${total} PNGs — share your cover!`);
-    }, 'image/png');
+    });
   });
 }
 
 export function exportCurrentSize(state, onProgress) {
-  const size = SIZES.find((s) => s.id === state.sizeId);
-  const canvas = document.createElement('canvas');
-  renderPoster(canvas, state);
-  canvas.toBlob((blob) => {
-    if (!blob) { onProgress('Export failed'); return; }
-    downloadBlob(blob, `vice-voltage-${size.w}x${size.h}.png`);
+  const size = SIZES.find((s) => s.id === state.sizeId) ?? SIZES[0];
+  renderToDownload(state, size.id, size.w, size.h, () => {
     onProgress(`Saved vice-voltage-${size.w}x${size.h}.png`);
+  });
+}
+
+function renderToDownload(state, sizeId, w, h, onDone) {
+  const canvas = document.createElement('canvas');
+  const snapshot = { ...state, sizeId };
+  renderPoster(canvas, snapshot);
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      onDone();
+      return;
+    }
+    downloadBlob(blob, `vice-voltage-${w}x${h}.png`);
+    onDone();
   }, 'image/png');
 }
 

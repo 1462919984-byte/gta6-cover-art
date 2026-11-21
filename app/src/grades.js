@@ -1,6 +1,8 @@
-// Colour grades: each defines a background, a warm/cool photo overlay, and the
-// chrome and accent colours used by the lettering. Sunset gold and neon night
-// are the headline grades; the rest prove the app re-renders live.
+// Colour grades: a named palette the renderer applies as a background gradient,
+// a warm/cool photo wash, and the chrome/accent/ink colours the lettering uses.
+// Each grade is deliberately a whole look (background, overlay, chrome ramp,
+// accent, ink, strip and title glow) so switching grades visibly re-grades the
+// entire poster in one click.
 
 export const GRADES = [
   {
@@ -68,5 +70,18 @@ export const GRADES = [
     ink: '#f4f7fb',
     strip: 'rgba(6,8,12,0.9)',
     titleGlow: 'rgba(190,210,240,0.5)',
+  },
+  {
+    // Warm dusk: a mauve-to-amber grade with a deeper magenta wash than sunset
+    // gold, giving photos a hot, hazy late-evening cast. This is the new grade.
+    id: 'warmDusk',
+    name: 'WARM DUSK',
+    background: ['#1a1030', '#5a2450', '#c65a3a', '#ffb86b'],
+    overlay: ['rgba(255,150,70,0.14)', 'rgba(200,60,90,0.44)'],
+    chrome: ['#fff2d8', '#ffcf8a', '#9c4a20', '#3c1608'],
+    accent: '#ffb86b',
+    ink: '#fff4e6',
+    strip: 'rgba(34,14,20,0.88)',
+    titleGlow: 'rgba(255,180,110,0.6)',
   },
 ];

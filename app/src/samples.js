@@ -1,7 +1,7 @@
-// Original sample imagery. The two JPG samples ship with the starter; the
-// eight-person demo cast is drawn here as our own vector-style portraits
-// (distinct skin tones, hair, hats and sunglasses) so no real person's photo
-// is ever downloaded from the web.
+// Original sample imagery. The two bundled JPG samples ship with the starter;
+// the eight-person demo cast is drawn here as our own vector-style portraits
+// (distinct skin tones, hair, hats and sunglasses) so no real person's photo is
+// ever downloaded from the web.
 
 export const SAMPLE_NAMES = ['boulevard', 'pier'];
 
@@ -19,10 +19,11 @@ const CAST = [
 function portraitDataUrl(cast, i) {
   const S = 420;
   const c = document.createElement('canvas');
-  c.width = S; c.height = S;
+  c.width = S;
+  c.height = S;
   const ctx = c.getContext('2d');
 
-  // Sunset backdrop
+  // Sunset backdrop.
   const bg = ctx.createLinearGradient(0, 0, 0, S);
   bg.addColorStop(0, i % 2 ? '#20113a' : '#2a0f4a');
   bg.addColorStop(0.6, i % 2 ? '#7a1f57' : '#0f5e6b');
@@ -36,7 +37,7 @@ function portraitDataUrl(cast, i) {
     ctx.fill();
   }
 
-  // Shoulders and torso
+  // Shoulders and torso.
   ctx.fillStyle = cast.shirt;
   ctx.beginPath();
   ctx.moveTo(S * 0.12, S);
@@ -51,22 +52,23 @@ function portraitDataUrl(cast, i) {
   ctx.quadraticCurveTo(S * 0.62, S * 0.72, S * 0.5, S * 0.72);
   ctx.fill();
 
-  // Neck
+  // Neck.
   ctx.fillStyle = cast.skin;
   ctx.fillRect(S * 0.44, S * 0.5, S * 0.12, S * 0.16);
 
-  // Head
+  // Head.
   ctx.beginPath();
   ctx.ellipse(S * 0.5, S * 0.36, S * 0.16, S * 0.2, 0, 0, Math.PI * 2);
   ctx.fillStyle = cast.skin;
   ctx.fill();
-  // Ears
+
+  // Ears.
   ctx.beginPath();
   ctx.ellipse(S * 0.34, S * 0.38, S * 0.025, S * 0.05, 0, 0, Math.PI * 2);
   ctx.ellipse(S * 0.66, S * 0.38, S * 0.025, S * 0.05, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Hair
+  // Hair.
   ctx.fillStyle = cast.hair;
   ctx.beginPath();
   ctx.moveTo(S * 0.32, S * 0.3);
@@ -84,7 +86,7 @@ function portraitDataUrl(cast, i) {
     ctx.fill();
   }
 
-  // Hat
+  // Hat.
   if (cast.hat === 'cap') {
     ctx.fillStyle = cast.shirt;
     ctx.beginPath();
@@ -101,7 +103,7 @@ function portraitDataUrl(cast, i) {
     ctx.fill();
   }
 
-  // Sunglasses or eyes
+  // Sunglasses or eyes.
   if (cast.shades) {
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(S * 0.36, S * 0.35, S * 0.28, S * 0.06);
@@ -119,7 +121,8 @@ function portraitDataUrl(cast, i) {
     ctx.arc(S * 0.56, S * 0.36, S * 0.009, 0, Math.PI * 2);
     ctx.fill();
   }
-  // Mouth
+
+  // Mouth.
   ctx.strokeStyle = 'rgba(0,0,0,0.45)';
   ctx.lineWidth = S * 0.01;
   ctx.beginPath();
@@ -149,10 +152,16 @@ export function loadVectorCast() {
   return photos;
 }
 
-// Build the cast data-URL images only when the samples button is pressed.
+// Build the cast data-URL images only when the samples button is pressed. The
+// width/height are read after decode so the renderer can draw them at once.
 export async function addDemoCast(state) {
   const portraits = loadVectorCast();
-  await Promise.all(portraits.map((img) => new Promise((res) => { img.onload = res; img.onerror = res; })));
+  await Promise.all(
+    portraits.map((img) => new Promise((res) => {
+      img.onload = res;
+      img.onerror = res;
+    })),
+  );
   portraits.forEach((img, i) => {
     state.photos.push({
       id: `cast-${i}`,

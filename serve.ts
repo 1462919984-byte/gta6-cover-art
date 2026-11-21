@@ -1,7 +1,11 @@
-// A tiny static server for app/ (Node 22, standard library only), so an entry can be tried
-// locally without a build step: `node serve.ts` serves app/ on http://localhost:8080.
-// It sends the MIME types an offline web app needs, refuses any path outside app/, and otherwise
-// does nothing clever: this is a development convenience, not a web server for the internet.
+// A small static server for app/ (Node 22, standard library only) so the studio
+// can be tried locally with no build step. It adds two conveniences over a bare
+// file server: a /healthz probe and one request-log line per hit. It only ever
+// serves files inside app/ — anything that climbs out of that tree is refused —
+// and is meant for local development, not the public internet.
+//
+//   node serve.ts --port 8080
+
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -47,6 +51,15 @@ createServer((request, response) => {
     response.writeHead(400).end('bad request');
     return;
   }
+
+  console.log(`[${new Date().toISOString()}] ${request.method} ${pathname}`);
+
+  if (pathname === '/healthz') {
+    response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('ok\n');
+    return;
+  }
+
   if (pathname.endsWith('/')) pathname += 'index.html';
   const file = resolve(join(root, normalize(pathname)));
   if (file !== root && !file.startsWith(root + sep)) {
@@ -70,4 +83,6 @@ createServer((request, response) => {
   createReadStream(file).pipe(response);
 }).listen(port, '127.0.0.1', () => {
   console.log(`app/ is on http://localhost:${port}`);
+  console.log(`  GET /          -> app/index.html`);
+  console.log(`  GET /healthz   -> liveness probe`);
 });

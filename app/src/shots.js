@@ -1,8 +1,10 @@
-// Fixed scenes for screenshots: a query string selects the layout, grade, size,
-// sample photos and captions so headless Chromium can export a real poster PNG
-// without any interaction. window.__shotReady is set once the paint settles.
+// Fixed scenes for screenshots. A query string picks the layout, grade, size,
+// sample photos and captions so headless Chromium can export a real poster
+// without any interaction, and window.__shotReady is set once the paint has
+// settled. `photo` now accepts a comma-separated list so a single shot can pin
+// a distinct photo to each panel, which the new layout/grade shots rely on.
 
-import { SIZES, findLayout, findGrade } from './state.js';
+import { findLayout, findGrade } from './state.js';
 
 export async function runShot(query, state, render) {
   const shot = query.get('shot');
@@ -22,12 +24,30 @@ export async function runShot(query, state, render) {
   // Load both starter samples and the vector cast so panels are always filled.
   const { loadImage } = await import('./main.js');
   const { addDemoCast } = await import('./samples.js');
-  for (const name of ['boulevard', 'pier']) {
+  const photoNames = photo.split(',').filter(Boolean);
+  for (const name of photoNames) {
     const img = await loadImage(`samples/${name}.jpg`);
-    state.photos.push({ id: `sample-${name}`, url: `samples/${name}.jpg`, name, width: img.naturalWidth, height: img.naturalHeight, kind: 'sample', image: img });
+    state.photos.push({
+      id: `sample-${name}`,
+      url: `samples/${name}.jpg`,
+      name,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      kind: 'sample',
+      image: img,
+    });
   }
   await addDemoCast(state);
-  state.panels.forEach((panel, i) => { panel.photo = Math.min(i, state.photos.length - 1); });
+
+  // Assign photos to panels: a comma list maps by index, otherwise the first
+  // photo is used across the whole cast before falling back to the demo cast.
+  state.panels.forEach((panel, i) => {
+    if (i < photoNames.length) {
+      panel.photo = i;
+    } else {
+      panel.photo = Math.min(i, state.photos.length - 1);
+    }
+  });
 
   state.captions.title = title;
   state.captions.subtitle = subtitle;

@@ -1,6 +1,7 @@
-// Canvas lettering helpers: the striped chrome title, script subtitle, stars,
-// gold seal, barcode and the small-caps billing block. Everything is drawn in
-// code so the poster never borrows artwork or a proprietary font.
+// Canvas lettering helpers. The striped chrome title, script subtitle, star
+// strip, gold seal, barcode and small-caps billing block are all drawn in code
+// with the bundled OFL fonts, so the poster never borrows artwork or a
+// proprietary typeface.
 
 const FONT_TITLE = '"Anton", sans-serif';
 const FONT_SCRIPT = '"Great Vibes", cursive';
@@ -12,31 +13,39 @@ export function ensureFonts() {
   ]).catch(() => {});
 }
 
+// Fits text to a maximum width *and* height. The height clamp is the small
+// robustness fix here: very long titles used to shrink only until they fit the
+// width, which could leave them taller than their block on narrow posters.
 function fitFont(ctx, text, family, maxWidth, maxHeight, weight = 700, italic = false) {
-  let size = maxHeight;
-  ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`;
+  let size = Math.max(8, maxHeight);
+  const apply = () => {
+    ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`;
+  };
+  apply();
   while (size > 8 && ctx.measureText(text).width > maxWidth) {
     size -= 2;
-    ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`;
+    apply();
   }
-  return size;
+  return Math.min(size, maxHeight);
 }
 
-/** Draws a big chrome title with dark shadow, gradient fill and diagonal stripes. */
+/** Draws the big chrome title with a dark stroke, gradient fill and sheen. */
 export function drawChromeTitle(ctx, text, cx, cy, maxWidth, maxHeight, grade) {
   if (!text) return;
   const upper = text.toUpperCase();
   const size = fitFont(ctx, upper, FONT_TITLE, maxWidth, maxHeight, 700);
+
   const off = document.createElement('canvas');
-  off.width = Math.ceil(maxWidth);
-  off.height = Math.ceil(maxHeight);
+  off.width = Math.max(1, Math.ceil(maxWidth));
+  off.height = Math.max(1, Math.ceil(maxHeight));
   const octx = off.getContext('2d');
   octx.font = `700 ${size}px ${FONT_TITLE}`;
   octx.textAlign = 'center';
   octx.textBaseline = 'middle';
   octx.fillStyle = '#fff';
   octx.fillText(upper, off.width / 2, off.height / 2);
-  // Gradient fill inside the letter shapes
+
+  // Gradient inside the letter shapes.
   octx.globalCompositeOperation = 'source-atop';
   const grad = octx.createLinearGradient(0, 0, 0, off.height);
   grad.addColorStop(0, grade.chrome[0]);
@@ -45,10 +54,12 @@ export function drawChromeTitle(ctx, text, cx, cy, maxWidth, maxHeight, grade) {
   grad.addColorStop(1, grade.chrome[3]);
   octx.fillStyle = grad;
   octx.fillRect(0, 0, off.width, off.height);
-  // Diagonal stripe sheen
+
+  // Diagonal sheen stripes.
   octx.globalAlpha = 0.5;
   octx.fillStyle = grade.chrome[0];
-  for (let x = -off.height; x < off.width + off.height; x += Math.max(14, size * 0.16)) {
+  const step = Math.max(14, size * 0.16);
+  for (let x = -off.height; x < off.width + off.height; x += step) {
     octx.beginPath();
     octx.moveTo(x, 0);
     octx.lineTo(x + off.height * 0.32, 0);
@@ -58,7 +69,8 @@ export function drawChromeTitle(ctx, text, cx, cy, maxWidth, maxHeight, grade) {
     octx.fill();
   }
   octx.globalAlpha = 1;
-  // Dark edge for readability
+
+  // Dark edge behind the letters for readability over busy panels.
   octx.globalCompositeOperation = 'destination-over';
   octx.strokeStyle = 'rgba(10,4,16,0.9)';
   octx.lineWidth = Math.max(4, size * 0.14);
@@ -87,7 +99,7 @@ export function drawScriptSubtitle(ctx, text, cx, cy, maxWidth, size, color, sha
   ctx.restore();
 }
 
-/** Five gold stars with a small rounded backing. */
+/** Five gold stars in a row. */
 export function drawStars(ctx, x, y, starR, color = '#ffd166') {
   ctx.save();
   for (let i = 0; i < 5; i++) {
@@ -104,7 +116,8 @@ function drawStar(ctx, cx, cy, r, color) {
     const rad = i % 2 === 0 ? r : r * 0.45;
     const px = cx + Math.cos(ang) * rad;
     const py = cy + Math.sin(ang) * rad;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
   }
   ctx.closePath();
   ctx.fillStyle = color;
@@ -119,7 +132,7 @@ function drawStar(ctx, cx, cy, r, color) {
 export function drawSeal(ctx, cx, cy, r, line1, line2, grade) {
   ctx.save();
   ctx.translate(cx, cy);
-  // Ribbed ring
+  // Ribbed ring.
   for (let i = 0; i < 36; i++) {
     const a = (i / 36) * Math.PI * 2;
     ctx.save();
@@ -172,17 +185,21 @@ export function drawBarcode(ctx, x, y, w, h) {
   ctx.restore();
 }
 
-/** Small-caps billing block, wrapped to a max width. */
+/** Small-caps billing block, wrapped to a max width and skipping blank words. */
 export function drawBillingBlock(ctx, text, cx, y, maxWidth, lineHeight, color) {
   if (!text) return y;
-  const words = text.toUpperCase().split(/\s+/);
+  const words = text.toUpperCase().split(/\s+/).filter(Boolean);
   const lines = [];
   let cur = '';
   ctx.font = `600 ${lineHeight}px system-ui, sans-serif`;
   for (const w of words) {
     const test = cur ? `${cur} ${w}` : w;
-    if (ctx.measureText(test).width <= maxWidth) cur = test;
-    else { lines.push(cur); cur = w; }
+    if (ctx.measureText(test).width <= maxWidth) {
+      cur = test;
+    } else {
+      if (cur) lines.push(cur);
+      cur = w;
+    }
   }
   if (cur) lines.push(cur);
   ctx.save();
