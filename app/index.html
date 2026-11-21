@@ -3,21 +3,107 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cover Snap</title>
+<title>Vice Voltage — GTA-style Cover Art Studio</title>
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<main class="app">
-  <section class="controls">
-    <h1>Cover Snap</h1>
-    <p>A photo and a caption, made into a square cover.</p>
-    <label>Photo <input id="photo" type="file" accept="image/*"></label>
-    <label>Caption <input id="caption" type="text" maxlength="40" value="Sunset Heist"></label>
-    <button id="export" type="button">Export PNG 1080 x 1080</button>
-    <p id="status" role="status"></p>
-  </section>
-  <canvas id="cover" width="1080" height="1080" aria-label="The cover"></canvas>
-</main>
+<div class="app-shell" id="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">VV</span>
+      <div class="brand-text">
+        <h1>VICE VOLTAGE</h1>
+        <p>Make your own crime-epic cover art — no upload, photos never leave this device</p>
+      </div>
+    </div>
+    <div class="steps" aria-label="3 steps">
+      <span class="step active"><b>1</b> Add photos</span>
+      <span class="step"><b>2</b> Caption</span>
+      <span class="step"><b>3</b> Export PNG</span>
+    </div>
+  </header>
+
+  <div class="editor">
+    <aside class="rail rail-left">
+      <section class="rail-block">
+        <h2>Photos</h2>
+        <div class="photo-actions">
+          <label class="btn btn-primary">Add photos<input id="photo-input" type="file" accept="image/*" multiple hidden></label>
+          <button id="try-samples" class="btn" type="button">Try samples · 8-person demo cast</button>
+        </div>
+        <div id="photo-strip" class="photo-strip"></div>
+        <p class="privacy-note">🔒 Photos are read with FileReader and drawn locally. They are never uploaded and never leave this device.</p>
+      </section>
+
+      <section class="rail-block">
+        <h2>Layout</h2>
+        <div id="layout-list" class="chip-grid"></div>
+      </section>
+
+      <section class="rail-block">
+        <h2>Colour grade</h2>
+        <div id="grade-list" class="chip-grid"></div>
+      </section>
+
+      <section class="rail-block">
+        <h2>Panel moves</h2>
+        <div id="panel-swap" class="panel-swap" title="Drag a number badge onto another to swap that panel's photo"></div>
+      </section>
+
+      <section class="rail-block">
+        <h2>History</h2>
+        <div class="history-row">
+          <button id="undo" class="btn" type="button">↶ Undo</button>
+          <button id="redo" class="btn" type="button">Redo ↷</button>
+          <button id="reset-poster" class="btn" type="button">Reset</button>
+        </div>
+      </section>
+    </aside>
+
+    <main class="center">
+      <div class="size-switch" id="size-switch">
+        <button data-size="1080x1080" class="active">1:1</button>
+        <button data-size="1080x1350">4:5</button>
+        <button data-size="1920x1080">16:9</button>
+      </div>
+      <div class="preview-wrap">
+        <canvas id="poster" width="1080" height="1080" aria-label="Live poster preview"></canvas>
+        <p id="export-status" class="export-status" role="status"></p>
+      </div>
+      <div class="panel-editor" id="panel-editor"></div>
+    </main>
+
+    <aside class="rail rail-right">
+      <section class="rail-block">
+        <h2>Caption</h2>
+        <label class="field"><span>Title</span><input id="cap-title" type="text" value="SUNDOWN RACKET"></label>
+        <label class="field"><span>Script subtitle</span><input id="cap-subtitle" type="text" value="Paid in Sunsets"></label>
+        <label class="field"><span>Tagline ribbon</span><input id="cap-tagline" type="text" value="FIVE FRIENDS · ONE COAST · NO WAY BACK"></label>
+      </section>
+
+      <section class="rail-block">
+        <h2>Review strip</h2>
+        <label class="field"><span>Quote</span><input id="cap-review" type="text" value="THE HOTTEST RIDE OF THE YEAR"></label>
+        <label class="field"><span>Source</span><input id="cap-source" type="text" value="VICE VOLTAGE GAZETTE"></label>
+        <label class="field"><span>Edition tag</span><input id="cap-edition" type="text" value="VOL. 1"></label>
+      </section>
+
+      <section class="rail-block">
+        <h2>Poster details</h2>
+        <label class="field"><span>Seal text</span><input id="cap-seal" type="text" value="BEST CAST"></label>
+        <label class="field"><span>Release line</span><input id="cap-release" type="text" value="COMING SOON"></label>
+        <label class="field area"><span>Billing block</span><textarea id="cap-billing" rows="3">A VICE VOLTAGE PICTURES PRODUCTION IN ASSOCIATION WITH NEON COAST ENTERTAINMENT</textarea></label>
+      </section>
+
+      <section class="rail-block">
+        <h2>Export</h2>
+        <button id="export-all" class="btn btn-export" type="button">Export all 3 PNGs</button>
+        <p class="export-note">Writes 1080×1080, 1080×1350 and 1920×1080 PNGs from the live preview.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
